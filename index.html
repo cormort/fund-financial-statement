@@ -867,6 +867,7 @@ function getComparisonText(currentCount, previousCount) {
             return changeDiv.outerHTML;
         }
 
+        function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
         function formatNumberUnits(num) { if (num === null || num === undefined || num === '' || isNaN(Number(num))) return '-'; const value = Number(num); const absValue = Math.abs(value); const formatter = (val, divisor, decimals, unit) => { try { return new Intl.NumberFormat('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val / divisor) + unit; } catch(e) { return (val/divisor).toFixed(decimals) + unit;} }; if (absValue >= 1e5) return formatter(value, 1e5, 2, ' 億元'); if (absValue >= 1e1) return formatter(value, 1e1, 1, ' 萬元').replace('.0 萬元',' 萬元'); return formatter(value, 1, 0, ' 千元'); }
         function getFundInceptionYear(fundName) { if (fundInceptionYears[fundName] !== undefined) return fundInceptionYears[fundName]; let earliestYear = null; if (processedData && processedData.length > 0) { const fundRecords = processedData.filter(item => item && item['基金名稱'] === fundName); if (fundRecords.length > 0) { const yearsWithData = fundRecords .filter(record => numericColumns.some(col => { const val = record?.[col]; return val !== null && val !== undefined && Number(val) !== 0; })) .map(record => Number(record?.['年度'])) .filter(year => !isNaN(year)) .sort((a, b) => a - b); if (yearsWithData.length > 0) earliestYear = yearsWithData[0]; } } fundInceptionYears[fundName] = earliestYear; return earliestYear; }
 
@@ -892,7 +893,7 @@ function getComparisonText(currentCount, previousCount) {
             const displayYearsLimit = 15;
             if (chartYears.length > displayYearsLimit) { chartYears = chartYears.slice(-displayYearsLimit); }
 
-            if (chartYears.length === 0) { container.innerHTML = `<p class="placeholder">此項目 (${selectedKey}) 在選定基準年度 ${selectedGlobalBaseYear} 或之前無資料可顯示。</p>`; pageInfo.textContent = ''; buttonControls.style.display = 'none'; return 0; }
+            if (chartYears.length === 0) { container.innerHTML = `<p class="placeholder">此項目 (${escapeHtml(selectedKey)}) 在選定基準年度 ${selectedGlobalBaseYear} 或之前無資料可顯示。</p>`; pageInfo.textContent = ''; buttonControls.style.display = 'none'; return 0; }
 
             const fields = correctedAggregateColumns; const totalCharts = fields.length; const itemsPerPage = showAll ? totalCharts : CHARTS_PER_PAGE;
             const totalPages = showAll ? 1 : Math.ceil(totalCharts / itemsPerPage); currentPage = Math.max(1, Math.min(currentPage, totalPages)); window[`currentPage${viewIdPrefix}`] = currentPage;
@@ -1148,14 +1149,14 @@ function getComparisonText(currentCount, previousCount) {
                 countSummaryHTML += `<div>餘絀無列數基金 <strong>${baseZeroCount}</strong> 單位${allYearsForFundType.includes(prevYear1) ? getComparisonText(baseZeroCount, prev1ZeroCount).replace('上年度', prevYear1+'年度') : ''}。</div>`;
 
             } else {
-                countSummaryHTML = `<p class="placeholder">此基金別 (${selectedFundType}) 於基準年度 ${baseYearToUse} 無彙編基金資料</p>`;
+                countSummaryHTML = `<p class="placeholder">此基金別 (${escapeHtml(selectedFundType)}) 於基準年度 ${baseYearToUse} 無彙編基金資料</p>`;
             }
             fundCountContainer.innerHTML = countSummaryHTML;
 
             // --- Financial Summary Cards ---
             const typeData = groupedByFundType[selectedFundType];
             if (!typeData || !typeData[baseYearToUse]) {
-                cardsContainer.innerHTML = `<p class="placeholder">無法載入 ${selectedFundType} 於基準年度 ${baseYearToUse} 的彙總財務資料</p>`;
+                cardsContainer.innerHTML = `<p class="placeholder">無法載入 ${escapeHtml(selectedFundType)} 於基準年度 ${baseYearToUse} 的彙總財務資料</p>`;
                 return;
             }
 
