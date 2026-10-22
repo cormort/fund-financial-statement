@@ -73,7 +73,8 @@
         }
 
         #fundTable,
-        #managementReportTableContainer {
+        #managementReportTableContainer,
+        #customQueryTableContainer {
             margin: 20px auto;
             overflow: auto; /* THIS IS KEY for sticky to work within this container */
             box-shadow: 0 0 5px rgba(0,0,0,.1);
@@ -84,7 +85,8 @@
         }
 
         #dataTable,
-        #managementReportTable {
+        #managementReportTable,
+        #customQueryTable {
             display: table;
             table-layout: auto;
             width: 100%;
@@ -96,7 +98,9 @@
         }
 
         #dataTable th, #dataTable td,
-        #managementReportTable th, #managementReportTable td {
+        #managementReportTable th, #managementReportTable td,
+        #customQueryTable th,
+        #customQueryTable td {
             border: 1px solid var(--border-light);
             padding: 7px 8px;
             text-align: right;
@@ -106,13 +110,15 @@
             transition: border-color var(--transition-speed), color var(--transition-speed), background-color var(--transition-speed);
         }
 
-        #managementReportTable td {
+        #managementReportTable td,
+        #customQueryTable td {
             position: relative;
             z-index: 1; /* Base for data cells, ensure they are below sticky headers/columns */
         }
 
         #dataTable th,
-        #managementReportTable th {
+        #managementReportTable th,
+        #customQueryTable th {
             background-color: var(--table-header-bg-light);
             font-weight: 700;
             text-align: center;
@@ -140,7 +146,8 @@
             z-index: 31; /* Highest for #dataTable's top-left */
         }
 
-        #managementReportTable th:first-child {
+        #managementReportTable th:first-child,
+        #customQueryTable th:first-child {
             text-align: left;
             /* position:sticky, top:0, left:0 are now key */
             position: -webkit-sticky; /* For Safari */
@@ -155,7 +162,8 @@
             word-wrap: break-word;
         }
 
-        #managementReportTable td:first-child {
+        #managementReportTable td:first-child,
+        #customQueryTable td:first-child {
             text-align: left;
             font-weight: 700;
             position: -webkit-sticky; /* For Safari */
@@ -171,11 +179,13 @@
             overflow-wrap: break-word !important;
         }
 
-        #managementReportTable .total-row td {
+        #managementReportTable .total-row td,
+        #customQueryTable .total-row td {
             font-weight: 700;
             background-color: var(--table-hover-bg-light);
         }
-        #managementReportTable .total-row td:first-child {
+        #managementReportTable .total-row td:first-child,
+        #customQueryTable .total-row td:first-child {
             text-align: center !important;
             white-space: nowrap !important;
             background-color: var(--table-sticky-bg-light) !important;
@@ -183,7 +193,8 @@
         }
 
         #dataTable tbody tr:hover,
-        #managementReportTable tbody tr:not(.total-row):hover {
+        #managementReportTable tbody tr:not(.total-row):hover,
+        #customQueryTable tbody tr:not(.total-row):hover {
             background-color:var(--table-hover-bg-light);
         }
         .table-unit-description{text-align:right;font-size:.85rem;margin-bottom:5px;padding-right:10px;color:var(--placeholder-text-light);transition:color var(--transition-speed)}
@@ -199,9 +210,12 @@
         .negative{color:var(--financial-negative-light);transition:color var(--transition-speed)}
         .summary-card .card-change .positive{color:var(--financial-positive-light)}
         .summary-card .card-change .negative{color:var(--financial-negative-light)}
-        #managementReportTable td.diff-positive{color:var(--financial-positive-light)}
-        #managementReportTable td.diff-negative{color:var(--financial-negative-light)}
-        #dataTable td.negative,#managementReportTable td.negative:not(.diff-negative):not([style*="color"]){color:var(--financial-positive-light)}
+        #managementReportTable td.diff-positive,
+        #customQueryTable td.diff-positive {color:var(--financial-positive-light)}
+        #managementReportTable td.diff-negative,
+        #customQueryTable td.diff-negative {color:var(--financial-negative-light)}
+        #dataTable td.negative,#managementReportTable td.negative:not(.diff-negative):not([style*="color"]),
+        #customQueryTable td.negative:not(.diff-negative):not([style*="color"]) {color:var(--financial-positive-light)}
         .placeholder,.error{text-align:center;font-size:1.1rem;color:var(--placeholder-text-light);margin:30px 20px;grid-column:1 / -1;width:100%;transition:color var(--transition-speed)}
         .error{color:var(--error-text-light);font-weight:700}
 
@@ -230,35 +244,45 @@
         body.dark-mode .button-controls button:disabled{background-color:var(--button-disabled-bg-dark);color:var(--button-disabled-text-dark)}
 
         body.dark-mode #fundTable,
-        body.dark-mode #managementReportTableContainer {
+        body.dark-mode #managementReportTableContainer,
+        body.dark-mode #customQueryTableContainer {
             box-shadow:0 0 8px rgba(255,255,255,.1);
         }
-        body.dark-mode #dataTable, body.dark-mode #managementReportTable {
+        body.dark-mode #dataTable, body.dark-mode #managementReportTable,
+        body.dark-mode #customQueryTable {
             background-color:var(--table-bg-dark);
         }
         body.dark-mode #dataTable th, body.dark-mode #dataTable td,
-        body.dark-mode #managementReportTable th, body.dark-mode #managementReportTable td {
+        body.dark-mode #managementReportTable th, body.dark-mode #managementReportTable td,
+        body.dark-mode #customQueryTable th,
+        body.dark-mode #customQueryTable td {
             border-color:var(--border-dark);
         }
         body.dark-mode #dataTable th,
-        body.dark-mode #managementReportTable th {
+        body.dark-mode #managementReportTable th,
+        body.dark-mode #customQueryTable th {
             background-color:var(--table-header-bg-dark);
             color:var(--text-dark-brighter);
         }
         body.dark-mode #dataTable td:first-child, body.dark-mode #dataTable th:first-child,
-        body.dark-mode #managementReportTable td:first-child, body.dark-mode #managementReportTable th:first-child {
+        body.dark-mode #managementReportTable td:first-child, body.dark-mode #managementReportTable th:first-child,
+        body.dark-mode #customQueryTable td:first-child,
+        body.dark-mode #customQueryTable th:first-child {
             background-color:var(--table-sticky-bg-dark) !important;
             color:var(--text-dark-brighter);
         }
-        body.dark-mode #managementReportTable .total-row td {
+        body.dark-mode #managementReportTable .total-row td,
+        body.dark-mode #customQueryTable .total-row td {
             background-color: var(--table-hover-bg-dark);
         }
-        body.dark-mode #managementReportTable .total-row td:first-child {
+        body.dark-mode #managementReportTable .total-row td:first-child,
+        body.dark-mode #customQueryTable .total-row td:first-child {
             background-color: var(--table-sticky-bg-dark) !important;
         }
 
         body.dark-mode #dataTable tbody tr:hover,
-        body.dark-mode #managementReportTable tbody tr:not(.total-row):hover {
+        body.dark-mode #managementReportTable tbody tr:not(.total-row):hover,
+        body.dark-mode #customQueryTable tbody tr:not(.total-row):hover {
             background-color:var(--table-hover-bg-dark);
         }
 
@@ -274,9 +298,12 @@
         body.dark-mode .negative{color:var(--financial-negative-dark)}
         body.dark-mode .summary-card .card-change .positive{color:var(--financial-positive-dark)}
         body.dark-mode .summary-card .card-change .negative{color:var(--financial-negative-dark)}
-        body.dark-mode #managementReportTable td.diff-positive{color:var(--financial-positive-dark)}
-        body.dark-mode #managementReportTable td.diff-negative{color:var(--financial-negative-dark)}
-        body.dark-mode #dataTable td.negative,body.dark-mode #managementReportTable td.negative:not(.diff-negative):not([style*="color"]){color:var(--financial-positive-dark)}
+        body.dark-mode #managementReportTable td.diff-positive,
+        body.dark-mode #customQueryTable td.diff-positive {color:var(--financial-positive-dark)}
+        body.dark-mode #managementReportTable td.diff-negative,
+        body.dark-mode #customQueryTable td.diff-negative {color:var(--financial-negative-dark)}
+        body.dark-mode #dataTable td.negative,body.dark-mode #managementReportTable td.negative:not(.diff-negative):not([style*="color"]),
+        body.dark-mode #customQueryTable td.negative:not(.diff-negative):not([style*="color"]) {color:var(--financial-positive-dark)}
         body.dark-mode .placeholder{color:var(--placeholder-text-dark)}
         body.dark-mode .error{color:var(--error-text-dark)}
 
@@ -296,7 +323,9 @@
             .controls,.button-controls{flex-direction:column;align-items:stretch;gap:10px}
             .form-group{width:100%;min-width:0}
             .form-group select,.form-group button,.form-group span{max-width:none}
-            #dataTable th,#dataTable td,#managementReportTable th,#managementReportTable td{font-size:.75rem;padding:4px;min-width:35px;max-width:90px;word-break:break-all}
+            #dataTable th,#dataTable td,#managementReportTable th,#managementReportTable td,
+        #customQueryTable th,
+        #customQueryTable td {font-size:.75rem;padding:4px;min-width:35px;max-width:90px;word-break:break-all}
             h2{font-size:1.3rem}
         }
         @media (min-width:769px) and (max-width:1024px){.platform-header{padding:8px 20px;font-size:1.6rem}.tab{padding:5px 20px;flex-wrap:nowrap; z-index: 10000;}.charts-container{grid-template-columns:repeat(2,minmax(0,1fr))}.chart-container,.summary-card{min-height:220px}}
