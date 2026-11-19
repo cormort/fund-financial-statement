@@ -329,6 +329,52 @@
             h2{font-size:1.3rem}
         }
         @media (min-width:769px) and (max-width:1024px){.platform-header{padding:8px 20px;font-size:1.6rem}.tab{padding:5px 20px;flex-wrap:nowrap; z-index: 10000;}.charts-container{grid-template-columns:repeat(2,minmax(0,1fr))}.chart-container,.summary-card{min-height:220px}}
+
+        /* ===== 可讀性與版面優化 ===== */
+        body,.banner,button,select,input{font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,Arial,sans-serif}
+        body{font-size:17px;line-height:1.6;padding:0 24px 40px}
+        .banner{height:110px}
+        .banner-title{font-size:30px;letter-spacing:1px}
+        .banner-slogan{font-size:17px;opacity:.9}
+        .tab{padding:10px 20px;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+        .tab button{font-size:16px;padding:9px 16px;border-radius:6px;margin:3px}
+        .tab button.active{font-weight:700}
+        .global-year-selector-container label,#globalBaseYearSelector,#toggleTheme{font-size:16px}
+        .tab-content{padding:24px 12px;max-width:1600px}
+        h2{font-size:1.75rem;margin:8px 0 20px}
+        .controls{gap:18px;padding:16px 20px;border:1px solid var(--border-light);border-radius:10px;background:var(--card-bg-light);max-width:1200px}
+        body.dark-mode .controls{border-color:var(--border-dark);background:var(--card-bg-dark)}
+        .form-group label{font-size:16px;font-weight:600}
+        .form-group select,.form-group button,.form-group span,.button-controls button,.button-controls span,.clear-filters-btn{font-size:16px;padding:8px 12px;border-radius:6px;min-height:40px}
+        .form-group select,.form-group button,.form-group span{max-width:260px}
+        #dataTable,#managementReportTable,#customQueryTable{font-size:1rem;font-variant-numeric:tabular-nums}
+        #dataTable th,#dataTable td,#managementReportTable th,#managementReportTable td,#customQueryTable th,#customQueryTable td{padding:9px 12px}
+        #dataTable tbody tr:nth-child(even),#managementReportTable tbody tr:nth-child(even):not(.total-row),#customQueryTable tbody tr:nth-child(even):not(.total-row){background:rgba(59,130,246,.04)}
+        .table-unit-description{font-size:.95rem}
+        .report-title{font-size:1.3rem}
+        #fundCountSummary{font-size:1.1rem}
+        .charts-container{grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:20px;padding:10px 0}
+        .chart-container{min-height:340px;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+        .summary-card{border-radius:10px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+        .summary-card h3{font-size:1.25rem}
+        .summary-card .card-value{font-size:1.9rem}
+        .summary-card .card-change{font-size:1.05rem;line-height:1.5}
+        .placeholder,.error{font-size:1.2rem}
+        @media (min-width:769px) and (max-width:1280px){
+            .tab{flex-wrap:wrap;row-gap:4px;padding:6px 12px}
+            .tab button{font-size:15px;padding:7px 12px}
+        }
+        @media (max-width:768px){
+            body{font-size:16px;padding:0 12px 20px}
+            .banner-title{font-size:1.4rem}
+            .tab{position:static}
+            .theme-toggle-container{justify-content:center}
+            .tab button{font-size:15px;padding:8px 12px}
+            .controls{padding:12px}
+            .charts-container{grid-template-columns:1fr}
+            .chart-container{min-height:300px}
+            #dataTable th,#dataTable td,#managementReportTable th,#managementReportTable td,#customQueryTable th,#customQueryTable td{font-size:.85rem;padding:6px}
+        }
        </style>
 
 <!-- Google tag (gtag.js) -->
@@ -1000,20 +1046,20 @@ function getComparisonText(currentCount, previousCount) {
                         top: 6,
                         textStyle: {
                             color: theme.textBright || theme.text,
-                            fontSize: 13,
+                            fontSize: 16,
                             fontWeight: 'bold'
                         }
                     },
-                    grid: { left: 8, right: 12, bottom: 28, top: 42, containLabel: true },
+                    grid: { left: 10, right: 16, bottom: 30, top: 50, containLabel: true },
                     tooltip: {
                         trigger: 'axis',
                         backgroundColor: theme.tooltipBg,
                         borderColor: theme.tooltipBorder,
                         borderWidth: 1,
-                        textStyle: { color: theme.text },
+                        textStyle: { color: theme.text, fontSize: 14 },
                         formatter: function(params) {
                             if (!params || !params.length) return '';
-                            let html = `<span style="font-size:10px">${params[0].axisValueLabel}年</span><br/>`;
+                            let html = `<span style="font-size:13px">${params[0].axisValueLabel}年</span><br/>`;
                             params.forEach(p => {
                                 if (p.value === undefined || p.value === null) return;
                                 html += `${p.marker} ${p.seriesName}: <b>${formatTooltipValue(p.value)}</b><br/>`;
@@ -1031,15 +1077,16 @@ function getComparisonText(currentCount, previousCount) {
                         axisLabel: {
                             color: theme.text,
                             interval: 0,
-                            fontSize: 10,
+                            fontSize: 13,
                             hideOverlap: false,
-                            rotate: years.length > 8 ? 30 : 0
+                            rotate: years.length > 10 ? 30 : 0
                         }
                     },
                     yAxis: {
                         type: 'value',
                         axisLabel: {
                             color: theme.text,
+                            fontSize: 13,
                             formatter: formatYAxisLabel
                         },
                         axisLine: { show: false },
