@@ -357,7 +357,7 @@
                 📂 匯入財務資料
             </h2>
             <p style="color:#555; font-size:0.95rem; margin:0 0 24px 0;">
-                請選擇或拖曳 <strong>.json</strong> 資料檔案以載入平台
+                請選擇或拖曳 <strong>.json</strong> 或 <strong>10年表 .pdf</strong> 檔案以載入平台
             </p>
             <div id="jsonDropZone" style="
                 border:2px dashed #3B82F6; border-radius:8px; padding:32px 20px;
@@ -367,12 +367,12 @@
                 ondragover="event.preventDefault(); this.style.background='#EFF6FF';"
                 ondragleave="this.style.background='';"
                 ondrop="handleJsonDrop(event)">
-                🗂️ 點擊選擇檔案，或將 JSON 拖曳到此處
+                🗂️ 點擊選擇檔案，或將 JSON / 10年表 PDF 拖曳到此處（PDF 可多選）
             </div>
-            <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="handleJsonFileSelect(event)">
+            <input type="file" id="jsonFileInput" accept=".json,.pdf" multiple style="display:none" onchange="handleJsonFileSelect(event)">
             <div id="jsonImportStatus" style="color:#d32f2f; font-size:0.9rem; min-height:20px; margin-bottom:12px;"></div>
             <p style="color:#aaa; font-size:0.8rem; margin:0;">
-                資料格式：JSON 陣列，或每行一筆 JSON 物件（NDJSON）
+                資料格式：JSON 陣列、NDJSON，或營業／非營業基金 10年表 PDF
             </p>
         </div>
     </div>
@@ -1712,13 +1712,195 @@ function getComparisonText(currentCount, previousCount) {
         function handleJsonDrop(event) {
             event.preventDefault();
             document.getElementById('jsonDropZone').style.background = '';
-            const file = event.dataTransfer.files[0];
-            if (file) loadJsonFile(file);
+            routeImportFiles(event.dataTransfer.files);
         }
 
         function handleJsonFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) loadJsonFile(file);
+            routeImportFiles(event.target.files);
+        }
+
+        function routeImportFiles(fileList) {
+            const files = [...fileList];
+            const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+            if (pdfs.length) loadPdfFiles(pdfs);
+            else if (files[0]) loadJsonFile(files[0]);
+        }
+
+        function finishImport(parsed, note = '') {
+            const status = document.getElementById('jsonImportStatus');
+            status.style.color = '#28a745';
+            status.textContent = `✅ 成功載入 ${parsed.length} 筆資料${note}，初始化平台中…`;
+            setTimeout(() => {
+                processedData = parsed;
+                document.getElementById('jsonImportOverlay').style.display = 'none';
+                initializePlatform();
+            }, 500);
+        }
+
+        // ---------- 10年表 PDF 解析（與 pdf2json.py 同規則）----------
+        const PDF_BIZ_MAP = ['業務總收入', '業務總支出', '本期餘絀', '賸餘繳庫數', '購建固定資產', '_增撥合計', '國庫增撥基金',
+            '政府補助收入', '資產', '現金', '負債', '長債餘額', '累積賸餘', null, null]; // 權益→累積賸餘；略 ROA/ROE
+        const PDF_NON_MAP = PDF_BIZ_MAP.slice(0, 13);
+
+        function loadPdfJs() {
+            if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                s.onload = () => {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    resolve(pdfjsLib);
+                };
+                s.onerror = () => reject(new Error('無法載入 pdf.js'));
+                document.head.appendChild(s);
+            });
+        }
+
+        // 每行 → { text, toks:[{s, x(右緣)}] }
+        async function pdfToLines(file) {
+            const lib = await loadPdfJs();
+            const doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+            const lines = [];
+            for (let p = 1; p <= doc.numPages; p++) {
+                const items = (await (await doc.getPage(p)).getTextContent()).items.filter(it => it.str.trim());
+                const rows = [];
+                for (const it of items) {
+                    const y = it.transform[5];
+                    let row = rows.find(r => Math.abs(r.y - y) < 3);
+                    if (!row) rows.push(row = { y, items: [] });
+                    row.items.push(it);
+                }
+                rows.sort((a, b) => b.y - a.y);
+                for (const r of rows) {
+                    r.items.sort((a, b) => a.transform[4] - b.transform[4]);
+                    const toks = [];
+                    for (const it of r.items) {
+                        const x0 = it.transform[4], len = it.str.length;
+                        for (const m of it.str.matchAll(/\S+/g)) // 一個 item 內多個數字時，依字元比例估右緣
+                            toks.push({ s: m[0], x: x0 + it.width * (m.index + m[0].length) / len });
+                    }
+                    lines.push({ text: r.items.map(it => it.str).join(' '), toks });
+                }
+            }
+            return lines;
+        }
+
+        function pdfFillEnds(ends, template) {
+            const n = template.length, k = ends.length - 4;
+            let best = null;
+            const combos = (start, left, acc) => {
+                if (left === 0) return void tryFit([0, 1, 2, ...acc, n - 1]);
+                for (let i = start; i <= n - 1 - left; i++) combos(i + 1, left - 1, [...acc, i]);
+            };
+            const tryFit = slots => {
+                const xs = slots.map(s => template[s]);
+                const mx = xs.reduce((a, b) => a + b) / xs.length, my = ends.reduce((a, b) => a + b) / ends.length;
+                const v = xs.reduce((a, x) => a + (x - mx) ** 2, 0) || 1e-9;
+                const a = xs.reduce((s, x, i) => s + (x - mx) * (ends[i] - my), 0) / v, b = my - a * mx;
+                const cost = xs.reduce((s, x, i) => s + (a * x + b - ends[i]) ** 2, 0);
+                if (a > 0 && (!best || cost < best.cost)) best = { cost, a, b, slots };
+            };
+            if (k >= 0) combos(3, k, []); // 收入/支出/餘絀與末欄必有值，錨定比例
+            if (!best) return null;
+            const full = template.map(t => best.a * t + best.b);
+            best.slots.forEach((s, i) => full[s] = ends[i]);
+            return full;
+        }
+
+        function pdfFundMeta(title, section) {
+            let t = title.replace(/\s+/g, '').replace(/基金基金/g, '基金').replace(/[（(]含[^)）]*[)）]/g, '');
+            if (t.includes('總表') || t.includes('內部往來')) return null;
+            const i = t.search(/[－-]/);
+            let parent, name, level;
+            if (i > 0) {
+                const strip = s => s.replace(/\((母|分)基金\)/g, '');
+                parent = strip(t.slice(0, i)); name = strip(t.slice(i + 1));
+                if (name === parent) name += '(分基金)';
+                level = '分基金';
+            } else {
+                parent = name = t;
+                level = t.startsWith('國立臺灣大學附設醫院') && t !== '國立臺灣大學附設醫院作業基金' ? '分基金' : '彙編基金';
+            }
+            return { '基金別': section, '基金名稱': name, '基金層級': level, '母基金': parent, '主管機關別': '', '業別': '', '基金編號': '' };
+        }
+
+        function parsePdfLines(lines) {
+            const biz = lines.some(l => l.text.includes('稅後淨利'));
+            const cmap = biz ? PDF_BIZ_MAP : PDF_NON_MAP, n = cmap.length;
+            const isToc = s => /\.\.|--|…/.test(s);
+            const heads = new Map();
+            lines.forEach((l, i) => {
+                const m = l.text.replace(/\s+/g, '').match(/^(.+?)近(?:10)?年度?收支概況彙.表/);
+                if (m && !isToc(l.text)) heads.set(i, m[1]);
+            });
+            lines.forEach((l, j) => { // 標題漏寫「近10年」者：取「單位」行上方那行
+                if (l.text.includes('單位') && l.text.includes('千元') && ![1, 2, 3].some(d => heads.has(j - d)) && j > 0)
+                    heads.set(j - 1, lines[j - 1].text.replace(/\s+/g, ''));
+            });
+            const idx = [...heads.keys()].sort((a, b) => a - b);
+            const segs = idx.map((i, k) => {
+                const rows = [];
+                for (const l of lines.slice(i + 1, idx[k + 1] ?? lines.length)) {
+                    if (!/^1\d\d$/.test(l.toks[0]?.s || '')) continue;
+                    const ts = l.toks.slice(1).filter(t => /^-?[\d,]+(\.\d+)?%?$/.test(t.s));
+                    if (ts.length) rows.push({ year: l.toks[0].s, ts });
+                }
+                return { title: heads.get(i), rows };
+            });
+            const refEnds = rows => rows.reduce((a, r) => r.ts.length > a.length ? r.ts : a, []).map(t => t.x);
+            const fulls = segs.map(s => refEnds(s.rows)).filter(e => e.length === n);
+            if (!fulls.length) throw new Error('找不到完整欄位的表格，PDF 格式可能不同');
+            const template = cmap.map((_, c) => fulls.reduce((a, f) => a + (f[c] - f[0]) / (f[n - 1] - f[0]), 0) / fulls.length);
+
+            const records = [];
+            let seq = '作業基金';
+            for (const { title, rows } of segs) {
+                const section = biz ? '營業基金' : title.includes('債務基金') ? '債務基金' : title.includes('營舍及設施改建') ? '資本計畫基金' : null;
+                if (!biz && title.includes('債務基金')) seq = '特別收入基金';
+                const meta = pdfFundMeta(title, section || seq);
+                if (!meta || !rows.length) continue;
+                let ends = refEnds(rows);
+                if (ends.length !== n) ends = pdfFillEnds(ends, template);
+                if (!ends) { console.warn('無法對齊欄位，略過:', title); continue; }
+                for (const { year, ts } of rows) {
+                    const rec = { ...meta, '年度': year };
+                    cmap.forEach(c => { if (c) rec[c] = null; });
+                    for (const t of ts) { // 依右緣找最近欄
+                        let bi = 0;
+                        ends.forEach((e, i) => { if (Math.abs(e - t.x) < Math.abs(ends[bi] - t.x)) bi = i; });
+                        if (cmap[bi] && !t.s.endsWith('%')) rec[cmap[bi]] = parseInt(t.s.replace(/,/g, ''), 10);
+                    }
+                    records.push(rec);
+                }
+            }
+            return records;
+        }
+
+        function checkPdfRecords(records) {
+            const off = (a, b, c) => [a, b, c].every(v => v != null) && Math.abs(a - b - c) > 2;
+            const warns = records.filter(r => off(r['業務總收入'], r['業務總支出'], r['本期餘絀']) || off(r['_增撥合計'], r['國庫增撥基金'], r['政府補助收入']))
+                .map(r => `${r['基金名稱']} ${r['年度']}`);
+            records.forEach(r => delete r['_增撥合計']);
+            return warns;
+        }
+
+        async function loadPdfFiles(files) {
+            const status = document.getElementById('jsonImportStatus');
+            status.style.color = '#1E3A8A';
+            try {
+                let records = [];
+                for (const f of files) {
+                    status.textContent = `⏳ 解析 ${f.name}…`;
+                    records = records.concat(parsePdfLines(await pdfToLines(f)));
+                }
+                if (!records.length) throw new Error('PDF 中找不到「近10年度收支概況彙總表」');
+                const warns = checkPdfRecords(records);
+                if (warns.length) console.warn('勾稽不符（PDF 原始數字）:', warns);
+                finishImport(records, warns.length ? `（${warns.length} 筆原始數字勾稽不符，詳見主控台）` : '');
+            } catch (err) {
+                status.style.color = '#d32f2f';
+                status.textContent = '❌ PDF 解析失敗：' + err.message;
+            }
         }
 
         function loadJsonFile(file) {
@@ -1758,14 +1940,7 @@ function getComparisonText(currentCount, previousCount) {
                         status.textContent = `❌ 缺少必要欄位：${missing.join('、')}`;
                         return;
                     }
-                    status.style.color = '#28a745';
-                    status.textContent = `✅ 成功載入 ${parsed.length} 筆資料，初始化平台中…`;
-
-                    setTimeout(() => {
-                        processedData = parsed;
-                        document.getElementById('jsonImportOverlay').style.display = 'none';
-                        initializePlatform();
-                    }, 500);
+                    finishImport(parsed);
                 } catch(err) {
                     status.style.color = '#d32f2f';
                     status.textContent = '❌ 解析失敗：' + err.message;
