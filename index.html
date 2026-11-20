@@ -1055,6 +1055,11 @@ function getComparisonText(currentCount, previousCount) {
                         }
                     },
                     grid: { left: 10, right: 16, bottom: 30, top: 50, containLabel: true },
+                    toolbox: {
+                        right: 8, top: 4, itemSize: 16,
+                        iconStyle: { borderColor: theme.text },
+                        feature: { saveAsImage: { title: '下載圖片', name: `${titleBase}-${field}`.replace(/[\\/:*?"<>|]/g, '_'), pixelRatio: 2, backgroundColor: theme.bg } }
+                    },
                     tooltip: {
                         trigger: 'axis',
                         backgroundColor: theme.tooltipBg,
@@ -1083,7 +1088,7 @@ function getComparisonText(currentCount, previousCount) {
                             interval: 0,
                             fontSize: 13,
                             hideOverlap: false,
-                            rotate: years.length > 10 ? 30 : 0
+                            rotate: years.length * 40 > innerDiv.clientWidth ? 30 : 0
                         }
                     },
                     yAxis: {
