@@ -361,6 +361,9 @@
         .summary-card .card-change{font-size:1.05rem;line-height:1.5}
         .placeholder,.error{font-size:1.2rem}
         .theme-toggle-container{gap:8px}
+        .budget-tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;font-size:.75em;font-weight:600;line-height:1.6;vertical-align:middle;background:#FEF3C7;color:#92400E}
+        body.dark-mode .budget-tag{background:#78350F;color:#FDE68A}
+        #dataTable tbody tr.budget-row td{background:rgba(245,158,11,.08)}
         #exportJsonBtn{padding:8px 10px;font-size:16px;line-height:1.5;cursor:pointer;border-radius:4px;white-space:nowrap;background-color:var(--theme-button-bg-light);color:var(--theme-button-text-light);border:1px solid var(--theme-button-border-light)}
         body.dark-mode #exportJsonBtn{background-color:var(--theme-button-bg-dark);color:var(--theme-button-text-dark);border-color:var(--theme-button-border-dark)}
         @media (min-width:769px) and (max-width:1280px){
@@ -1315,7 +1318,7 @@ function getComparisonText(currentCount, previousCount) {
             const tbody = dataTable.createTBody();
 
             if (tableYearsToShow.length === 0) { const row = tbody.insertRow(); row.insertCell().outerHTML = `<td colspan="${correctedAggregateColumns.length + 1}" class="placeholder" style="text-align:center;">此基金於 ${startTableYear}-${endTableYear} 年度區間無資料</td>`; }
-            else { tableYearsToShow.forEach(row => { const tr = tbody.insertRow(); const yearCell = tr.insertCell(); yearCell.textContent = row['年度'] || '-'; correctedAggregateColumns.forEach(col => { const td = tr.insertCell(); const value = row[col]; const formatValueTable = (num) => { if (num === null || num === undefined || num === '' || isNaN(Number(num))) return '-'; try { return new Intl.NumberFormat('zh-TW',{minimumFractionDigits: 0, maximumFractionDigits: 0}).format(Number(num)); } catch(e) { return Number(num).toFixed(0); } }; td.textContent = formatValueTable(value); if (value < 0) td.classList.add('negative'); }); }); if (exportBtn) exportBtn.disabled = false; currentV2TableData = { fundName: selectedFundName, yearsData: tableYearsToShow, baseYear: selectedGlobalBaseYear }; }
+            else { tableYearsToShow.forEach(row => { const tr = tbody.insertRow(); const yearCell = tr.insertCell(); yearCell.textContent = row['年度'] || '-'; if (isBudgetYear(row['年度'])) { tr.classList.add('budget-row'); yearCell.appendChild(budgetTag()); } correctedAggregateColumns.forEach(col => { const td = tr.insertCell(); const value = row[col]; const formatValueTable = (num) => { if (num === null || num === undefined || num === '' || isNaN(Number(num))) return '-'; try { return new Intl.NumberFormat('zh-TW',{minimumFractionDigits: 0, maximumFractionDigits: 0}).format(Number(num)); } catch(e) { return Number(num).toFixed(0); } }; td.textContent = formatValueTable(value); if (value < 0) td.classList.add('negative'); }); }); if (exportBtn) exportBtn.disabled = false; currentV2TableData = { fundName: selectedFundName, yearsData: tableYearsToShow, baseYear: selectedGlobalBaseYear }; }
         }
         function exportV2TableToExcel() { if (!currentV2TableData || !currentV2TableData.yearsData || currentV2TableData.yearsData.length === 0) { alert("沒有可匯出的 10 年表資料。請先選擇有資料的基金。"); return; } if (typeof XLSX === 'undefined') { alert("錯誤：無法載入 Excel 匯出函式庫 (XLSX)。"); return; } console.log("Exporting V2 Table to Excel..."); const { fundName, yearsData, baseYear } = currentV2TableData; const excelData = []; const headers = ['年度', ...correctedAggregateColumns]; excelData.push([`基準年度: ${baseYear}`, `單位: 千元`].concat(new Array(headers.length - 2).fill(null))); excelData.push(headers); yearsData.forEach(row => { const rowArray = [row['年度']]; correctedAggregateColumns.forEach(col => { const value = row[col]; rowArray.push(value === undefined || value === null || isNaN(Number(value)) ? null : Number(value)); }); excelData.push(rowArray); }); try { const ws = XLSX.utils.aoa_to_sheet(excelData); const colWidths = headers.map((h, i) => { if (i === 0) return { wch: 10 }; return { wch: 15 }; }); ws['!cols'] = colWidths; const numFmt = '#,##0_);\\(#,##0\\)'; for (let R = 2; R < excelData.length; ++R) { for (let C = 1; C < headers.length; ++C) { const cell_address = { c: C, r: R }; const cell_ref = XLSX.utils.encode_cell(cell_address); if (ws[cell_ref] && ws[cell_ref].t === 'n') { ws[cell_ref].z = numFmt; } } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "10年表"); const safeFundName = fundName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_'); const filename = `10年表_${safeFundName}_基準${baseYear}.xlsx`; XLSX.writeFile(wb, filename); console.log("V2 Table Excel export successful:", filename); } catch (error) { console.error("Error exporting V2 Table to Excel:", error); alert("匯出 10年表 Excel 時發生錯誤。\n" + error.message); } }
         function initializeSelectorsManagement() { console.log("Initializing Management Report selectors..."); const selFundType = document.getElementById('fundTypeSelectorManagement'); const selCondition = document.getElementById('conditionSelectorManagement'); const exportBtn = document.getElementById('exportManagementReportBtn'); if (!selFundType || !selCondition || !exportBtn) { console.error("Management Report selector init failed: Missing elements."); return; } const compiledFundTypes = [...new Set(processedData.filter(d => d && d['基金層級'] === '彙編基金').map(d => d['基金別']).filter(Boolean))].sort(); populateSelectorWithOptions(selFundType, compiledFundTypes, true, "請選擇基金別", false, false); selFundType.removeEventListener('change', generateManagementReport); selFundType.addEventListener('change', generateManagementReport); selCondition.removeEventListener('change', generateManagementReport); selCondition.addEventListener('change', generateManagementReport); }
@@ -1445,6 +1448,8 @@ function getComparisonText(currentCount, previousCount) {
             headers.forEach((headerText, headerIndex) => {
                 const th = document.createElement('th');
                 th.textContent = headerText;
+                const hy = String(headerText).match(/^(\d{3})\s/);
+                if (hy && isBudgetYear(hy[1])) th.appendChild(budgetTag());
 
                 th.style.cursor = 'pointer';
                 th.dataset.columnKey = headerText;
@@ -1659,7 +1664,7 @@ function getComparisonText(currentCount, previousCount) {
             const headers = ['基金名稱', ...yearsInRange.map(y => `${y}`), sumHeader];
             const thead = table.createTHead();
             const headRow = thead.insertRow();
-            headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; headRow.appendChild(th); });
+            headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; if (/^\d{3}$/.test(h) && isBudgetYear(h)) th.appendChild(budgetTag()); headRow.appendChild(th); });
 
             const tbody = table.createTBody();
             const totals = { name: '合計', years: {}, sum: 0 };
@@ -1780,6 +1785,19 @@ function getComparisonText(currentCount, previousCount) {
             const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
             if (pdfs.length) loadPdfFiles(pdfs);
             else if (files[0]) loadJsonFile(files[0]);
+        }
+
+        // 最新兩個年度為預算案數，其餘為審定決算數（依 10年表註記）
+        let budgetYearCache = { src: null, years: new Set() };
+        function isBudgetYear(y) {
+            if (budgetYearCache.src !== processedData) {
+                const ys = [...new Set((processedData || []).map(d => Number(d['年度'])).filter(Boolean))].sort((a, b) => b - a);
+                budgetYearCache = { src: processedData, years: new Set(ys.slice(0, 2)) };
+            }
+            return budgetYearCache.years.has(Number(y));
+        }
+        function budgetTag() {
+            return Object.assign(document.createElement('span'), { className: 'budget-tag', textContent: '預算', title: '預算案數（其餘年度為審定決算數）' });
         }
 
         let rawImportData = null; // 平台初始化會改寫 processedData（年度轉數字、空值補 0），匯出用原始副本
