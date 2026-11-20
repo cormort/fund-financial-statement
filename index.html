@@ -366,13 +366,13 @@
             .tab-buttons{gap:6px;flex:1 1 100%;justify-content:center}
             .tab-buttons .tablinks{margin:0;white-space:nowrap}
             .tab .global-year-selector-container,.tab .theme-toggle-container{flex:none}
-            .tab .global-year-selector-container select,#toggleTheme,#exportJsonBtn{height:42px;padding-top:0;padding-bottom:0}
+            .tab .global-year-selector-container select,#toggleTheme,#exportJsonBtn,#importMoreBtn{height:42px;padding-top:0;padding-bottom:0}
         }
         .budget-tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;font-size:.75em;font-weight:600;line-height:1.6;vertical-align:middle;background:#FEF3C7;color:#92400E}
         body.dark-mode .budget-tag{background:#78350F;color:#FDE68A}
         #dataTable tbody tr.budget-row td{background:rgba(245,158,11,.08)}
         #exportJsonBtn{padding:8px 10px;font-size:16px;line-height:1.5;cursor:pointer;border-radius:4px;white-space:nowrap;background-color:var(--theme-button-bg-light);color:var(--theme-button-text-light);border:1px solid var(--theme-button-border-light)}
-        body.dark-mode #exportJsonBtn{background-color:var(--theme-button-bg-dark);color:var(--theme-button-text-dark);border-color:var(--theme-button-border-dark)}
+        body.dark-mode #exportJsonBtn,body.dark-mode #importMoreBtn{background-color:var(--theme-button-bg-dark);color:var(--theme-button-text-dark);border-color:var(--theme-button-border-dark)}
         @media (min-width:769px) and (max-width:1280px){
             .tab{flex-wrap:wrap;row-gap:4px;padding:6px 12px}
             .tab button{font-size:15px;padding:7px 12px}
@@ -412,6 +412,7 @@
             background:#fff; border-radius:12px; padding:40px;
             max-width:520px; width:90%; box-shadow:0 8px 40px rgba(0,0,0,0.4);
             text-align:center;">
+            <button id="jsonImportClose" onclick="document.getElementById('jsonImportOverlay').style.display='none'" title="關閉" style="display:none; float:right; border:none; background:none; font-size:1.4rem; cursor:pointer; color:#888;">✕</button>
             <h2 style="margin:0 0 8px 0; color:#1E3A8A; font-size:1.4rem;">
                 📂 匯入財務資料
             </h2>
@@ -460,6 +461,7 @@
         </div>
         <div class="theme-toggle-container">
             <button id="toggleTheme">🌙 深色模式</button>
+            <button id="importMoreBtn" onclick="openImportOverlay()" title="再匯入 JSON／PDF，與目前資料累加">📂 追加匯入</button>
             <button id="exportJsonBtn" onclick="exportLoadedJson()" title="下載目前載入的資料（含 PDF 轉換結果）">💾 匯出 JSON</button>
         </div>
     </div>
@@ -1836,11 +1838,25 @@ function getComparisonText(currentCount, previousCount) {
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
+        function openImportOverlay() {
+            document.getElementById('jsonImportStatus').textContent = '';
+            document.getElementById('jsonFileInput').value = '';
+            document.getElementById('jsonImportClose').style.display = '';
+            document.getElementById('jsonImportOverlay').style.display = 'flex';
+        }
+
         function finishImport(parsed, note = '') {
             const status = document.getElementById('jsonImportStatus');
             status.style.color = '#28a745';
             status.textContent = `✅ 成功載入 ${parsed.length} 筆資料${note}，初始化平台中…`;
-            rawImportData = structuredClone(parsed);
+            // 累加：與先前匯入合併，同基金同年度以新檔為準
+            const key = r => `${r['基金名稱']}|${r['年度']}`;
+            const merged = new Map((rawImportData || []).map(r => [key(r), r]));
+            const before = merged.size;
+            parsed.forEach(r => merged.set(key(r), r));
+            rawImportData = [...merged.values()];
+            if (before) status.textContent = `✅ 累加 ${parsed.length} 筆，合計 ${rawImportData.length} 筆${note}，初始化平台中…`;
+            parsed = structuredClone(rawImportData);
             setTimeout(() => {
                 processedData = parsed;
                 document.getElementById('jsonImportOverlay').style.display = 'none';
