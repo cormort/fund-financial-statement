@@ -822,7 +822,7 @@ function getComparisonText(currentCount, previousCount) {
             });
 
             const aggregate = (group, key, year, item) => { if (!key || !year) return; if (!group[key]) group[key] = {}; if (!group[key][year]) { group[key][year] = {}; correctedAggregateColumns.forEach(col => group[key][year][col] = 0); } correctedAggregateColumns.forEach(col => { group[key][year][col] += (Number(item[col]) || 0); }); };
-            processedData.forEach((item) => { const fundType = item?.['基金別']; const authority = item?.['主管機關別']; const industry = item?.['業別']; const fundName = item?.['基金名稱']; const year = item?.['年度']; const fundLevel = item?.['基金層級']; if (!fundName || !year || !fundLevel) return; if (fundLevel === '彙編基金') { if(fundType) aggregate(groupedByFundType, fundType, year, item); if(authority) aggregate(groupedByAuthority, authority, year, item); if(industry) aggregate(groupedByIndustry, industry, year, item); } aggregate(groupedByFundName, fundName, year, item); });
+            processedData.forEach((item) => { const fundType = item?.['基金別']; const authority = item?.['主管機關別']; const industry = item?.['業別']; const fundName = item?.['基金名稱']; const year = item?.['年度']; const fundLevel = item?.['基金層級']; if (!fundName || !year || !fundLevel) return; if (fundLevel === '彙編基金') { if(fundType) aggregate(groupedByFundType, fundType, year, item); if (fundType && fundType !== '營業基金') aggregate(groupedByFundType, NON_BIZ_TYPE, year, item); if(authority) aggregate(groupedByAuthority, authority, year, item); if(industry) aggregate(groupedByIndustry, industry, year, item); } aggregate(groupedByFundName, fundName, year, item); });
             console.log("Data grouping complete.");
         }
 
@@ -880,7 +880,7 @@ function getComparisonText(currentCount, previousCount) {
             }
         }
 
-        function initializeAllSelectors() { console.log("Initializing all selectors..."); initializeSelectorsV1(); initializeSelectorsV2(); const fundTypeSelectorOverview = document.getElementById('fundTypeSelectorOverview'); const overviewFundTypes = Object.keys(groupedByFundType).sort(); populateSelectorWithOptions(fundTypeSelectorOverview, overviewFundTypes, true, "請選擇基金別", false, false); const fundTypeSelectorV3 = document.getElementById('fundTypeSelectorV3'); const v3FundTypes = Object.keys(groupedByFundType).sort(); populateSelectorWithOptions(fundTypeSelectorV3, v3FundTypes, true, "請選擇基金別", false, false); initializeSelectorsV4(); initializeSelectorsV5(); initializeSelectorsManagement(); initializeSelectorsCustomQuery(); console.log("All selectors initialized."); }
+        function initializeAllSelectors() { console.log("Initializing all selectors..."); initializeSelectorsV1(); initializeSelectorsV2(); const fundTypeSelectorOverview = document.getElementById('fundTypeSelectorOverview'); const overviewFundTypes = sortFundTypes(Object.keys(groupedByFundType)); populateSelectorWithOptions(fundTypeSelectorOverview, overviewFundTypes, true, "請選擇基金別", false, false, true); const fundTypeSelectorV3 = document.getElementById('fundTypeSelectorV3'); const v3FundTypes = sortFundTypes(Object.keys(groupedByFundType)); populateSelectorWithOptions(fundTypeSelectorV3, v3FundTypes, true, "請選擇基金別", false, false, true); initializeSelectorsV4(); initializeSelectorsV5(); initializeSelectorsManagement(); initializeSelectorsCustomQuery(); console.log("All selectors initialized."); }
         function openTab(evt, tabName) { console.log(`Opening tab: ${tabName}`); const tabcontent = document.getElementsByClassName("tab-content"); for (let i = 0; i < tabcontent.length; i++) tabcontent[i].classList.remove("active"); const tablinks = document.getElementsByClassName("tablinks"); for (let i = 0; i < tablinks.length; i++) tablinks[i].classList.remove("active"); const currentTab = document.getElementById(tabName); if (currentTab) currentTab.classList.add("active"); else { console.error(`Tab content ${tabName} not found!`); document.getElementById('viewOverview').classList.add("active"); tabName = 'viewOverview'; } if (evt && evt.currentTarget) evt.currentTarget.classList.add("active"); else { const matchingButton = Array.from(tablinks).find(btn => btn.getAttribute('onclick')?.includes(`'${tabName}'`)); if(matchingButton) matchingButton.classList.add("active"); } currentPageV1 = 1; showAllState.V1 = false; currentPageV3 = 1; showAllState.V3 = false; currentPageV4 = 1; showAllState.V4 = false; currentPageV5 = 1; showAllState.V5 = false; if (!selectedGlobalBaseYear && masterYearList.length > 0) { selectedGlobalBaseYear = parseInt(masterYearList[0],10); const globalSel = document.getElementById('globalBaseYearSelector'); if(globalSel) globalSel.value = selectedGlobalBaseYear; } switch (tabName) { case 'view1': renderChartsV1(showAllState.V1); break; case 'viewOverview': renderOverviewCards(); break; case 'view2': renderTableV2(); break; case 'viewManagement': generateManagementReport(); break; case 'viewCustomQuery': runCustomQuery(); break; case 'view3': renderChartsV3(showAllState.V3); break; case 'view4': renderChartsV4(showAllState.V4); break; case 'view5': renderChartsV5(showAllState.V5); break; default: console.warn(`No render function defined for tab: ${tabName}`); } }
         function calculateYoYChange(current, previous) { const currentNum = Number(current); const previousNum = Number(previous); if (isNaN(currentNum) || isNaN(previousNum)) return NaN; if (Math.abs(previousNum) < 1e-6) { if (currentNum > 1e-6) return Infinity; if (currentNum < -1e-6) return -Infinity; return 0; } return ((currentNum - previousNum) / Math.abs(previousNum)) * 100; }
                 // 請將舊的 generateYoYChangeHTML 替換為這個新的版本
@@ -1048,7 +1048,7 @@ function getComparisonText(currentCount, previousCount) {
                 const option = {
                     backgroundColor: theme.bg,
                     title: {
-                        text: `${titleBase} - ${field}`,
+                        text: `${titleBase} - ${fieldLabel(field)}`,
                         left: 'center',
                         top: 6,
                         textStyle: {
@@ -1106,7 +1106,7 @@ function getComparisonText(currentCount, previousCount) {
                     },
                     series: [
                         {
-                            name: field,
+                            name: fieldLabel(field),
                             type: 'bar',
                             data: dataSeries.map(v => ({
                                 value: v,
@@ -1207,7 +1207,7 @@ function getComparisonText(currentCount, previousCount) {
             const prevYear1 = baseYearToUse - 1; // 最近的第1個前年度
             const prevYear2 = baseYearToUse - 2; // 最近的第2個前年度
 
-            const relevantFunds = processedData.filter(d => d && d['基金別'] === selectedFundType && d['基金層級'] === '彙編基金');
+            const relevantFunds = processedData.filter(d => d && fundTypeMatches(d['基金別'], selectedFundType) && d['基金層級'] === '彙編基金');
             const allYearsForFundType = [...new Set(relevantFunds.map(d => d['年度']))].sort((a, b) => b - a);
 
             // --- Fund Count Summary (unchanged for now, but uses getComparisonText) ---
@@ -1274,7 +1274,7 @@ function getComparisonText(currentCount, previousCount) {
                         comparisonHTML += `<div class="card-change">無 ${prevYear2}年 資料可比較</div>`;
                     }
 
-                    card.innerHTML = `<h3>${col}</h3>
+                    card.innerHTML = `<h3>${fieldLabel(col)}</h3>
                                       <div class="card-value">${formatNumberUnits(currentValue)}</div>
                                       ${comparisonHTML}
                                       <div class="card-inception" style="margin-top: 5px;">(${baseYearToUse}年 ${selectedFundType}綜計)</div>`;
@@ -1314,7 +1314,7 @@ function getComparisonText(currentCount, previousCount) {
             const tableYearsToShow = fundRecordsAllYears.filter(r => r['年度'] >= startTableYear && r['年度'] <= endTableYear).sort((a,b) => b['年度'] - a['年度']);
 
             const thead = dataTable.createTHead(); const headerRow = thead.insertRow();
-            headerRow.insertCell().outerHTML = '<th>年度</th>'; correctedAggregateColumns.forEach(col => { headerRow.insertCell().outerHTML = `<th>${col}</th>`; });
+            headerRow.insertCell().outerHTML = '<th>年度</th>'; correctedAggregateColumns.forEach(col => { headerRow.insertCell().outerHTML = `<th>${fieldLabel(col)}</th>`; });
             const tbody = dataTable.createTBody();
 
             if (tableYearsToShow.length === 0) { const row = tbody.insertRow(); row.insertCell().outerHTML = `<td colspan="${correctedAggregateColumns.length + 1}" class="placeholder" style="text-align:center;">此基金於 ${startTableYear}-${endTableYear} 年度區間無資料</td>`; }
@@ -1447,7 +1447,7 @@ function getComparisonText(currentCount, previousCount) {
 
             headers.forEach((headerText, headerIndex) => {
                 const th = document.createElement('th');
-                th.textContent = headerText;
+                th.textContent = fieldLabel(headerText);
                 const hy = String(headerText).match(/^(\d{3})\s/);
                 if (hy && isBudgetYear(hy[1])) th.appendChild(budgetTag());
 
@@ -1595,7 +1595,7 @@ function getComparisonText(currentCount, previousCount) {
                 selYearTo.value = yearsAsc[yearsAsc.length - 1];
             }
 
-            selMetric.innerHTML = correctedAggregateColumns.map(c => `<option value="${c}">${c}</option>`).join('');
+            selMetric.innerHTML = correctedAggregateColumns.map(c => `<option value="${c}">${fieldLabel(c)}</option>`).join('');
         }
 
         function runCustomQuery() {
@@ -1664,7 +1664,7 @@ function getComparisonText(currentCount, previousCount) {
             const headers = ['基金名稱', ...yearsInRange.map(y => `${y}`), sumHeader];
             const thead = table.createTHead();
             const headRow = thead.insertRow();
-            headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; if (/^\d{3}$/.test(h) && isBudgetYear(h)) th.appendChild(budgetTag()); headRow.appendChild(th); });
+            headers.forEach(h => { const th = document.createElement('th'); th.textContent = fieldLabel(h); if (/^\d{3}$/.test(h) && isBudgetYear(h)) th.appendChild(budgetTag()); headRow.appendChild(th); });
 
             const tbody = table.createTBody();
             const totals = { name: '合計', years: {}, sum: 0 };
@@ -1785,6 +1785,20 @@ function getComparisonText(currentCount, previousCount) {
             const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
             if (pdfs.length) loadPdfFiles(pdfs);
             else if (files[0]) loadJsonFile(files[0]);
+        }
+
+        const NON_BIZ_TYPE = '非營業基金'; // 作業 + 特別收入 + 債務 + 資本計畫（即營業基金以外）
+        const FUND_TYPE_ORDER = ['營業基金', NON_BIZ_TYPE, '作業基金', '特別收入基金', '債務基金', '資本計畫基金'];
+        function sortFundTypes(types) {
+            const rank = t => { const i = FUND_TYPE_ORDER.indexOf(t); return i < 0 ? FUND_TYPE_ORDER.length : i; };
+            return [...types].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+        }
+        function fundTypeMatches(type, selected) {
+            return selected === NON_BIZ_TYPE ? !!type && type !== '營業基金' : type === selected;
+        }
+        const FIELD_FULL_LABELS = { '業務總收入': '業務總收入（含基金來源）', '業務總支出': '業務總支出（含基金用途）' };
+        function fieldLabel(text) {
+            return String(text).replace(/業務總(收入|支出)(?!（)/g, m => FIELD_FULL_LABELS[m]);
         }
 
         // 最新兩個年度為預算案數，其餘為審定決算數（依 10年表註記）
