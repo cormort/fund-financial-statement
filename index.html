@@ -831,7 +831,7 @@ function getComparisonText(currentCount, previousCount) {
             });
 
             const aggregate = (group, key, year, item) => { if (!key || !year) return; if (!group[key]) group[key] = {}; if (!group[key][year]) { group[key][year] = {}; correctedAggregateColumns.forEach(col => group[key][year][col] = 0); } correctedAggregateColumns.forEach(col => { group[key][year][col] += (Number(item[col]) || 0); }); };
-            processedData.forEach((item) => { const fundType = item?.['基金別']; const authority = item?.['主管機關別']; const industry = item?.['業別']; const fundName = item?.['基金名稱']; const year = item?.['年度']; const fundLevel = item?.['基金層級']; if (!fundName || !year || !fundLevel) return; if (fundLevel === '彙編基金') { if(fundType) aggregate(groupedByFundType, fundType, year, item); if (fundType && fundType !== '營業基金') aggregate(groupedByFundType, NON_BIZ_TYPE, year, item); if(authority) aggregate(groupedByAuthority, authority, year, item); if(industry) aggregate(groupedByIndustry, industry, year, item); } aggregate(groupedByFundName, fundName, year, item); });
+            processedData.forEach((item) => { const fundType = item?.['基金別']; const authority = item?.['主管機關別']; const industry = item?.['業別']; const fundName = item?.['基金名稱']; const year = item?.['年度']; const fundLevel = item?.['基金層級']; if (!fundName || !year || !fundLevel) return; if (fundLevel === '彙編基金') { if(fundType) aggregate(groupedByFundType, fundType, year, item); if (fundType && fundType !== '營業基金') aggregate(groupedByFundType, NON_BIZ_TYPE, year, item); if (fundType) aggregate(groupedByFundType, ALL_TYPE, year, item); if(authority) aggregate(groupedByAuthority, authority, year, item); if(industry) aggregate(groupedByIndustry, industry, year, item); } aggregate(groupedByFundName, fundName, year, item); });
             console.log("Data grouping complete.");
         }
 
@@ -1797,12 +1797,14 @@ function getComparisonText(currentCount, previousCount) {
         }
 
         const NON_BIZ_TYPE = '非營業基金'; // 作業 + 特別收入 + 債務 + 資本計畫（即營業基金以外）
-        const FUND_TYPE_ORDER = ['營業基金', NON_BIZ_TYPE, '作業基金', '特別收入基金', '債務基金', '資本計畫基金'];
+        const ALL_TYPE = '特種基金合計'; // 營業 + 非營業
+        const FUND_TYPE_ORDER = [ALL_TYPE, '營業基金', NON_BIZ_TYPE, '作業基金', '特別收入基金', '債務基金', '資本計畫基金'];
         function sortFundTypes(types) {
             const rank = t => { const i = FUND_TYPE_ORDER.indexOf(t); return i < 0 ? FUND_TYPE_ORDER.length : i; };
             return [...types].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
         }
         function fundTypeMatches(type, selected) {
+            if (selected === ALL_TYPE) return !!type;
             return selected === NON_BIZ_TYPE ? !!type && type !== '營業基金' : type === selected;
         }
         const FIELD_FULL_LABELS = { '業務總收入': '業務總收入（含基金來源）', '業務總支出': '業務總支出（含基金用途）' };
