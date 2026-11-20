@@ -1252,7 +1252,7 @@ function getComparisonText(currentCount, previousCount) {
             const prev1AggData = typeData[prevYear1];
             const prev2AggData = typeData[prevYear2];
 
-            const cardColumns = ['業務總收入', '業務總支出', '本期餘絀', '賸餘繳庫數', '購建固定資產'];
+            const cardColumns = correctedAggregateColumns;
             cardColumns.forEach(col => {
                 if (correctedAggregateColumns.includes(col)) {
                     const card = document.createElement('div');
