@@ -626,19 +626,30 @@
                 <select id="customMetricSelector"></select>
             </div>
             <div class="form-group">
-                <label for="customValueConditionSelector">數值條件</label>
-                <select id="customValueConditionSelector">
-                    <option value="">不篩選</option>
-                    <option value="gt0">大於 0</option>
-                    <option value="eq0">等於 0</option>
-                    <option value="lt0">小於 0</option>
-                    <option value="top10">前 10 大</option>
-                    <option value="bottom10">後 10 小</option>
+                <label for="customBasisSelector">判斷依據</label>
+                <select id="customBasisSelector">
+                    <option value="sum">區間合計</option>
+                    <option value="last">結束年度</option>
                 </select>
             </div>
             <div class="form-group">
-                <label>&nbsp;</label>
-                <button onclick="runCustomQuery()">執行查詢</button>
+                <label for="customValueConditionSelector">數值條件</label>
+                <select id="customValueConditionSelector">
+                    <option value="">不篩選</option>
+                    <option value="gt">大於（億元）</option>
+                    <option value="lt">小於（億元）</option>
+                    <option value="eq0">等於 0</option>
+                    <option value="top">前 N 大</option>
+                    <option value="bottom">後 N 小</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="customValueInput">門檻／N</label>
+                <input type="number" id="customValueInput" placeholder="0" style="width:110px">
+            </div>
+            <div class="form-group">
+                <label for="customNameInput">基金名稱</label>
+                <input type="search" id="customNameInput" placeholder="關鍵字" style="width:150px">
             </div>
             <div class="form-group">
                 <label>&nbsp;</label>
@@ -1584,6 +1595,7 @@ function getComparisonText(currentCount, previousCount) {
         function exportManagementReportToExcel() { if (!currentManagementReportData || !currentManagementReportData.reportData) { alert("沒有可匯出的報表資料。請先生成報表。"); return; } if (typeof XLSX === 'undefined') { alert("錯誤：無法載入 Excel 匯出函式庫 (XLSX)。"); return; } console.log("Exporting Management Report to Excel..."); const { headers, totalRow, reportData, fundType, condition, reportTitle } = currentManagementReportData; const excelData = []; excelData.push([reportTitle || '管理性報表']); excelData.push(['單位: 千元'].concat(new Array(headers.length - 1).fill(null))); excelData.push(headers); if (totalRow) { const totalRowArray = headers.map(header => { const value = totalRow[header]; if (header === '基金名稱') return value; return (value !== undefined && value !== null && !isNaN(Number(value))) ? Number(value) : null; }); excelData.push(totalRowArray); } reportData.forEach(row => { const rowArray = headers.map(header => { const value = row[header]; if (header === '基金名稱') return value; return (value !== undefined && value !== null && !isNaN(Number(value))) ? Number(value) : null; }); excelData.push(rowArray); }); try { const ws = XLSX.utils.aoa_to_sheet(excelData); const numFmt = '#,##0_);\\(#,##0\\)'; const diffFmtWithSign = '+#,##0;\\-#,##0;0'; const titleCellStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" } }; const headerCellStyle = { font: { bold: true }, alignment: { horizontal: "center" } }; ws['A1'].s = titleCellStyle; if (ws['!merges']) ws['!merges'].push(XLSX.utils.decode_range(`A1:${XLSX.utils.encode_col(headers.length-1)}1`)); else ws['!merges'] = [XLSX.utils.decode_range(`A1:${XLSX.utils.encode_col(headers.length-1)}1`)]; for (let C = 0; C < headers.length; ++C) { const headerCellRef = XLSX.utils.encode_cell({c:C, r:2}); if(ws[headerCellRef]) ws[headerCellRef].s = headerCellStyle; } for (let R = 3; R < excelData.length; ++R) { for (let C = 1; C < headers.length; ++C) { const cell_address = { c: C, r: R }; const cell_ref = XLSX.utils.encode_cell(cell_address); if (ws[cell_ref] && ws[cell_ref].t === 'n') { ws[cell_ref].z = headers[C].includes('增(減-)') ? diffFmtWithSign : numFmt; } } } const colWidths = headers.map((h, i) => { if (i === 0) return { wch: 35 }; if (h.includes('增(減-)')) return { wch: 20 }; return { wch: 18 }; }); ws['!cols'] = colWidths; const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "管理報表"); const safeFundType = fundType.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_'); const filename = `管理報表_${safeFundType}_條件${condition}.xlsx`; XLSX.writeFile(wb, filename); console.log("Management Report Excel export successful:", filename); } catch (error) { console.error("Error exporting Management Report to Excel:", error); alert("匯出管理報表 Excel 時發生錯誤。\n" + error.message); } }
         // ===== Custom Query (自訂查詢) =====
         let currentCustomQueryData = null;
+        let customSort = { key: null, dir: -1 }; // null = 依數值條件預設排序
 
         function initializeSelectorsCustomQuery() {
             console.log("Initializing Custom Query selectors...");
@@ -1595,8 +1607,13 @@ function getComparisonText(currentCount, previousCount) {
             const selCond = document.getElementById('customValueConditionSelector');
             if (!selLevel || !selType || !selYearFrom || !selYearTo || !selMetric || !selCond) { console.error("Custom Query selector init failed."); return; }
 
-            const fundTypes = [...new Set(processedData.map(d => d?.['基金別']).filter(Boolean))].sort();
-            populateSelectorWithOptions(selType, fundTypes, true, "全部基金別", false, false);
+            const fundTypes = sortFundTypes([...new Set(processedData.map(d => d?.['基金別']).filter(Boolean)), NON_BIZ_TYPE]);
+            populateSelectorWithOptions(selType, fundTypes, true, "全部基金別", false, false, true);
+            if (!selMetric.dataset.live) { // 條件變更即時查詢
+                selMetric.dataset.live = 1;
+                document.querySelectorAll('#viewCustomQuery select, #viewCustomQuery input').forEach(el =>
+                    el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', () => runCustomQuery()));
+            }
 
             const yearsAsc = [...masterYearList].map(Number).sort((a, b) => a - b);
             selYearFrom.innerHTML = yearsAsc.map(y => `<option value="${y}">${y}</option>`).join('');
@@ -1616,6 +1633,9 @@ function getComparisonText(currentCount, previousCount) {
             const yearTo = parseInt(document.getElementById('customYearToSelector')?.value, 10);
             const metric = document.getElementById('customMetricSelector')?.value || "";
             const cond = document.getElementById('customValueConditionSelector')?.value || "";
+            const basis = document.getElementById('customBasisSelector')?.value || 'sum';
+            const rawVal = document.getElementById('customValueInput')?.value;
+            const nameKw = (document.getElementById('customNameInput')?.value || '').trim();
 
             const table = document.getElementById('customQueryTable');
             const titleEl = document.getElementById('customQueryTitle');
@@ -1635,7 +1655,8 @@ function getComparisonText(currentCount, previousCount) {
 
             const filtered = processedData.filter(d => d
                 && (!selLevel || d['基金層級'] === selLevel)
-                && (!selType || d['基金別'] === selType)
+                && (!selType || fundTypeMatches(d['基金別'], selType))
+                && (!nameKw || String(d['基金名稱'] || '').includes(nameKw))
                 && Number(d['年度']) >= yFrom && Number(d['年度']) <= yTo);
             if (filtered.length === 0) { placeholderEl.textContent = '篩選條件下無資料'; return; }
 
@@ -1651,23 +1672,30 @@ function getComparisonText(currentCount, previousCount) {
             });
             let rows = Object.values(byFund);
 
-            // Value condition
-            if (cond === 'gt0') rows = rows.filter(r => r.sum > 0);
-            else if (cond === 'eq0') rows = rows.filter(r => r.sum === 0);
-            else if (cond === 'lt0') rows = rows.filter(r => r.sum < 0);
-
-            // Sort by sum desc by default; top10/bottom10 override
-            rows.sort((a, b) => b.sum - a.sum);
-            if (cond === 'top10') rows = rows.slice(0, 10);
-            else if (cond === 'bottom10') rows = rows.slice().sort((a, b) => a.sum - b.sum).slice(0, 10);
+            // Value condition（門檻單位億元 = 1e5 千元）
+            const basisVal = r => basis === 'last' ? (r.years[yTo] ?? 0) : r.sum;
+            const thr = rawVal === '' ? 0 : Number(rawVal);
+            const n = Math.max(1, Math.floor(Number(rawVal) || 10));
+            if (cond === 'gt') rows = rows.filter(r => basisVal(r) > thr * 1e5);
+            else if (cond === 'lt') rows = rows.filter(r => basisVal(r) < thr * 1e5);
+            else if (cond === 'eq0') rows = rows.filter(r => basisVal(r) === 0);
+            rows.sort((a, b) => basisVal(b) - basisVal(a));
+            if (cond === 'top') rows = rows.slice(0, n);
+            else if (cond === 'bottom') rows = rows.slice(-n).reverse();
+            // 點表頭排序
+            if (customSort.key !== null) {
+                const sv = r => customSort.key === 'name' ? r.name : customSort.key === 'sum' ? r.sum : (r.years[customSort.key] ?? -Infinity);
+                rows.sort((a, b) => { const x = sv(a), y = sv(b); return (typeof x === 'string' ? x.localeCompare(y) : x - y) * customSort.dir; });
+            }
 
             if (rows.length === 0) { placeholderEl.textContent = '符合條件之資料為 0 筆'; return; }
 
             // Build title
-            const condLabel = { gt0: '大於 0', eq0: '等於 0', lt0: '小於 0', top10: '前 10 大', bottom10: '後 10 小' }[cond] || '不篩選';
+            const basisLabel = basis === 'last' ? `${yTo}年度` : '區間合計';
+            const condLabel = cond ? basisLabel + ' ' + ({ gt: `大於 ${thr} 億元`, lt: `小於 ${thr} 億元`, eq0: '等於 0', top: `前 ${n} 大`, bottom: `後 ${n} 小` }[cond]) : '不篩選';
             const levelLabel = selLevel || '全部層級';
-            const typeLabel = selType || '全部基金別';
-            titleEl.textContent = `${levelLabel} / ${typeLabel} - ${metric} (${yFrom}~${yTo}) / ${condLabel}`;
+            const typeLabel = (selType || '全部基金別') + (nameKw ? `「${nameKw}」` : '');
+            titleEl.textContent = `${levelLabel} / ${typeLabel} - ${fieldLabel(metric)} (${yFrom}~${yTo}) / ${condLabel}`;
             unitEl.textContent = '單位: 千元';
 
             // Build table
@@ -1675,7 +1703,15 @@ function getComparisonText(currentCount, previousCount) {
             const headers = ['基金名稱', ...yearsInRange.map(y => `${y}`), sumHeader];
             const thead = table.createTHead();
             const headRow = thead.insertRow();
-            headers.forEach(h => { const th = document.createElement('th'); th.textContent = fieldLabel(h); if (/^\d{3}$/.test(h) && isBudgetYear(h)) th.appendChild(budgetTag()); headRow.appendChild(th); });
+            headers.forEach((h, i) => {
+                const key = i === 0 ? 'name' : i === headers.length - 1 ? 'sum' : Number(h);
+                const th = document.createElement('th'); th.textContent = fieldLabel(h);
+                if (/^\d{3}$/.test(h) && isBudgetYear(h)) th.appendChild(budgetTag());
+                th.style.cursor = 'pointer'; th.title = '點擊排序';
+                if (customSort.key === key) th.append(customSort.dir > 0 ? ' ▲' : ' ▼');
+                th.onclick = () => { customSort = { key, dir: customSort.key === key ? -customSort.dir : (key === 'name' ? 1 : -1) }; runCustomQuery(); };
+                headRow.appendChild(th);
+            });
 
             const tbody = table.createTBody();
             const totals = { name: '合計', years: {}, sum: 0 };
@@ -2113,6 +2149,8 @@ function getComparisonText(currentCount, previousCount) {
                         const parentTabContent = newBtn.closest('.tab-content');
                         if (!parentTabContent) return;
                         const selectors = parentTabContent.querySelectorAll('select');
+                        parentTabContent.querySelectorAll('input').forEach(i => i.value = '');
+                        if (parentTabContent.id === 'viewCustomQuery') customSort = { key: null, dir: -1 };
                         selectors.forEach(select => {
                             if (parentTabContent.id === 'viewManagement') {
                                 if (select.id !== 'fundTypeSelectorManagement' && select.id !== 'conditionSelectorManagement') {
