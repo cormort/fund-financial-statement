@@ -1795,7 +1795,7 @@ function getComparisonText(currentCount, previousCount) {
             const files = [...fileList];
             const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
             if (pdfs.length) loadPdfFiles(pdfs);
-            else if (files[0]) loadJsonFile(files[0]);
+            files.filter(f => !pdfs.includes(f)).forEach(loadJsonFile); // finishImport 會累加，可混選 PDF＋JSON
         }
 
         const NON_BIZ_TYPE = '非營業基金'; // 作業 + 特別收入 + 債務 + 資本計畫（即營業基金以外）
