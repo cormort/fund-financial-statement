@@ -361,6 +361,13 @@
         .summary-card .card-change{font-size:1.05rem;line-height:1.5}
         .placeholder,.error{font-size:1.2rem}
         .theme-toggle-container{gap:8px}
+        @media (min-width:769px){
+            .tab{flex-wrap:wrap;row-gap:8px}
+            .tab-buttons{gap:6px;flex:1 1 100%;justify-content:center}
+            .tab-buttons .tablinks{margin:0;white-space:nowrap}
+            .tab .global-year-selector-container,.tab .theme-toggle-container{flex:none}
+            .tab .global-year-selector-container select,#toggleTheme,#exportJsonBtn{height:42px;padding-top:0;padding-bottom:0}
+        }
         .budget-tag{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;font-size:.75em;font-weight:600;line-height:1.6;vertical-align:middle;background:#FEF3C7;color:#92400E}
         body.dark-mode .budget-tag{background:#78350F;color:#FDE68A}
         #dataTable tbody tr.budget-row td{background:rgba(245,158,11,.08)}
