@@ -707,12 +707,14 @@ function getComparisonText(currentCount, previousCount) {
         }
         function formatYAxisLabel(value) {
             const absVal = Math.abs(value);
+            if (absVal >= 1e9) return (value / 1e9).toFixed(1).replace(/\.0$/, '') + '兆元';
             if (absVal >= 1e5) return (value / 1e5).toFixed(1).replace(/\.0$/, '') + '億元';
             if (absVal >= 1e1) return (value / 1e1).toFixed(1).replace(/\.0$/, '') + '萬元';
             return formatThousands(value) + '千元';
         }
         function formatTooltipValue(value) {
             const absVal = Math.abs(value);
+            if (absVal >= 1e9) return (value / 1e9).toFixed(2) + ' 兆元';
             if (absVal >= 1e5) return (value / 1e5).toFixed(2) + ' 億元';
             if (absVal >= 1e1) return (value / 1e1).toFixed(0) + ' 萬元';
             return formatThousands(value) + ' 千元';
@@ -957,7 +959,7 @@ function getComparisonText(currentCount, previousCount) {
         }
 
         function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-        function formatNumberUnits(num) { if (num === null || num === undefined || num === '' || isNaN(Number(num))) return '-'; const value = Number(num); const absValue = Math.abs(value); const formatter = (val, divisor, decimals, unit) => { try { return new Intl.NumberFormat('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val / divisor) + unit; } catch(e) { return (val/divisor).toFixed(decimals) + unit;} }; if (absValue >= 1e5) return formatter(value, 1e5, 2, ' 億元'); if (absValue >= 1e1) return formatter(value, 1e1, 1, ' 萬元').replace('.0 萬元',' 萬元'); return formatter(value, 1, 0, ' 千元'); }
+        function formatNumberUnits(num) { if (num === null || num === undefined || num === '' || isNaN(Number(num))) return '-'; const value = Number(num); const absValue = Math.abs(value); const formatter = (val, divisor, decimals, unit) => { try { return new Intl.NumberFormat('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val / divisor) + unit; } catch(e) { return (val/divisor).toFixed(decimals) + unit;} }; if (absValue >= 1e9) return formatter(value, 1e9, 2, ' 兆元'); if (absValue >= 1e5) return formatter(value, 1e5, 2, ' 億元'); if (absValue >= 1e1) return formatter(value, 1e1, 1, ' 萬元').replace('.0 萬元',' 萬元'); return formatter(value, 1, 0, ' 千元'); }
         function getFundInceptionYear(fundName) { if (fundInceptionYears[fundName] !== undefined) return fundInceptionYears[fundName]; let earliestYear = null; if (processedData && processedData.length > 0) { const fundRecords = processedData.filter(item => item && item['基金名稱'] === fundName); if (fundRecords.length > 0) { const yearsWithData = fundRecords .filter(record => numericColumns.some(col => { const val = record?.[col]; return val !== null && val !== undefined && Number(val) !== 0; })) .map(record => Number(record?.['年度'])) .filter(year => !isNaN(year)) .sort((a, b) => a - b); if (yearsWithData.length > 0) earliestYear = yearsWithData[0]; } } fundInceptionYears[fundName] = earliestYear; return earliestYear; }
 
         function renderGroupedCharts(viewIdPrefix, groupedData, selectedKey, currentPage, containerId, pageInfoId, showAll) {
