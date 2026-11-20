@@ -360,6 +360,9 @@
         .summary-card .card-value{font-size:1.9rem}
         .summary-card .card-change{font-size:1.05rem;line-height:1.5}
         .placeholder,.error{font-size:1.2rem}
+        .theme-toggle-container{gap:8px}
+        #exportJsonBtn{padding:8px 10px;font-size:16px;line-height:1.5;cursor:pointer;border-radius:4px;white-space:nowrap;background-color:var(--theme-button-bg-light);color:var(--theme-button-text-light);border:1px solid var(--theme-button-border-light)}
+        body.dark-mode #exportJsonBtn{background-color:var(--theme-button-bg-dark);color:var(--theme-button-text-dark);border-color:var(--theme-button-border-dark)}
         @media (min-width:769px) and (max-width:1280px){
             .tab{flex-wrap:wrap;row-gap:4px;padding:6px 12px}
             .tab button{font-size:15px;padding:7px 12px}
@@ -447,6 +450,7 @@
         </div>
         <div class="theme-toggle-container">
             <button id="toggleTheme">🌙 深色模式</button>
+            <button id="exportJsonBtn" onclick="exportLoadedJson()" title="下載目前載入的資料（含 PDF 轉換結果）">💾 匯出 JSON</button>
         </div>
     </div>
 
@@ -1773,10 +1777,22 @@ function getComparisonText(currentCount, previousCount) {
             else if (files[0]) loadJsonFile(files[0]);
         }
 
+        let rawImportData = null; // 平台初始化會改寫 processedData（年度轉數字、空值補 0），匯出用原始副本
+        function exportLoadedJson() {
+            if (!rawImportData?.length) { alert('目前沒有已載入的資料。'); return; }
+            const years = rawImportData.map(r => Number(r['年度'])).filter(Boolean);
+            const name = `fund-data_${Math.min(...years)}-${Math.max(...years)}.json`;
+            const url = URL.createObjectURL(new Blob([JSON.stringify(rawImportData, null, 1)], { type: 'application/json' }));
+            const a = Object.assign(document.createElement('a'), { href: url, download: name });
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
         function finishImport(parsed, note = '') {
             const status = document.getElementById('jsonImportStatus');
             status.style.color = '#28a745';
             status.textContent = `✅ 成功載入 ${parsed.length} 筆資料${note}，初始化平台中…`;
+            rawImportData = structuredClone(parsed);
             setTimeout(() => {
                 processedData = parsed;
                 document.getElementById('jsonImportOverlay').style.display = 'none';
